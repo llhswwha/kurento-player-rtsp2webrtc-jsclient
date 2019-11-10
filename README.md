@@ -7,8 +7,10 @@
 
 2.使用IDEA启动服务端。
 
-3.客户端放到IIS中，并连接服务端，播放视频。
+3.打开前端页面（可以不同放到IIS中），并连接服务端，播放视频。
 
 相关博客：
 
-<https://blog.csdn.net/llhswwha/article/details/102896066>，<https://blog.csdn.net/llhswwha/article/details/102971582>
+<https://blog.csdn.net/llhswwha/article/details/102896066>
+
+<https://blog.csdn.net/llhswwha/article/details/102971582>
