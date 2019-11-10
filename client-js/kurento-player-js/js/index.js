@@ -15,24 +15,71 @@
  *
  */
 console.log("index.js",location,location.host);
-console.log(location.host);
-var host=location.host;
-//if(host==="")
-{
-	host="192.168.1.150:8443";
+var ws=null;
+function intWebSocket(url){
+	if(ws!=null&&ws.url===url){
+		console.log("intWebSocket same url",url);
+		return;
+	}
+	console.log("intWebSocket",url);
+	ws = new WebSocket(url);
+	ws.onerror=function(error){
+		console.error("onerror",error);
+	}
+	ws.onopen=function(msg){
+		console.log("onopen",msg,this);
+		this.send("{id:1}");//测试服务端代码
+		if(isStartPlayAfterOpen){//websocket连接上后就播放
+			start();
+		}
+	}
+	ws.onclose=function(msg){
+		console.error("onclose",msg);
+	}
+	ws.onmessage = function(message) {
+		var parsedMessage = JSON.parse(message.data);
+		console.info('Received message: ' + message.data);
+	
+		switch (parsedMessage.id) {
+		case 'startResponse':
+			startResponse(parsedMessage);
+			break;
+		case 'error':
+			if (state == I_AM_STARTING) {
+				setState(I_CAN_START);
+			}
+			onError('Error message from server: ' + parsedMessage.message);
+			break;
+		case 'playEnd':
+			playEnd();
+			break;
+		case 'videoInfo':
+			showVideoData(parsedMessage);
+			break;
+		case 'iceCandidate':
+			webRtcPeer.addIceCandidate(parsedMessage.candidate, function(error) {
+				if (error)
+					return console.error('Error adding candidate: ' + error);
+			});
+			break;
+		case 'seek':
+			console.log (parsedMessage.message);
+			break;
+		case 'position':
+			document.getElementById("videoPosition").value = parsedMessage.position;
+			break;
+		case 'iceCandidate':
+			break;
+		default:
+			if (state == I_AM_STARTING) {
+				setState(I_CAN_START);
+			}
+			onError('Unrecognized message', parsedMessage);
+		}
+	}
 }
-console.log("host",host);
-var ws = new WebSocket('wss://' + host + '/player');
-ws.onerror=function(error){
-	console.error("onerror",error);
-}
-ws.onopen=function(msg){
-	console.log("onopen",msg,this);
-	this.send("{id:1}");
-}
-ws.onclose=function(msg){
-	console.error("onclose",msg);
-}
+//intWebSocket('ws://192.168.1.150:8444/player');
+
 var video;
 var webRtcPeer;
 var state = null;
@@ -52,52 +99,26 @@ window.onbeforeunload = function() {
 	ws.close();
 }
 
-ws.onmessage = function(message) {
-	var parsedMessage = JSON.parse(message.data);
-	console.info('Received message: ' + message.data);
 
-	switch (parsedMessage.id) {
-	case 'startResponse':
-		startResponse(parsedMessage);
-		break;
-	case 'error':
-		if (state == I_AM_STARTING) {
-			setState(I_CAN_START);
-		}
-		onError('Error message from server: ' + parsedMessage.message);
-		break;
-	case 'playEnd':
-		playEnd();
-		break;
-	case 'videoInfo':
-		showVideoData(parsedMessage);
-		break;
-	case 'iceCandidate':
-		webRtcPeer.addIceCandidate(parsedMessage.candidate, function(error) {
-			if (error)
-				return console.error('Error adding candidate: ' + error);
-		});
-		break;
-	case 'seek':
-		console.log (parsedMessage.message);
-		break;
-	case 'position':
-		document.getElementById("videoPosition").value = parsedMessage.position;
-		break;
-	case 'iceCandidate':
-		break;
-	default:
-		if (state == I_AM_STARTING) {
-			setState(I_CAN_START);
-		}
-		onError('Unrecognized message', parsedMessage);
-	}
-}
+var isStartPlayAfterOpen=false;
 
 function start() {
+
+	var serverurl = document.getElementById('serverurl').value;
+	intWebSocket(serverurl);
+
 	// Disable start button
 	setState(I_AM_STARTING);
 	showSpinner(video);
+
+	isClickStart=true;
+	console.log("start",ws.readyState);
+	if(ws.readyState==0){
+		//alert("网络正在连接中，请稍后。")
+		console.log("网络正在连接中，请稍后。",ws.readyState);
+		isStartPlayAfterOpen=true;
+		return;
+	}
 
 	var mode = $('input[name="mode"]:checked').val();
 	console.log('Creating WebRtcPeer in ' + mode + ' mode and generating local sdp offer ...');
